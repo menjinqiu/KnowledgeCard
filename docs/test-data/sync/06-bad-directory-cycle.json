@@ -1,0 +1,33 @@
+{
+  "app": "KnowledgeCard",
+  "version": 1,
+  "exportedAt": "2026-06-26T02:20:00.000Z",
+  "cards": [],
+  "collections": [],
+  "directories": [
+    {
+      "id": "sync-qa-bad-cycle-dir-a-v1",
+      "title": "Sync QA Bad Cycle Directory A",
+      "parentId": "sync-qa-bad-cycle-dir-b-v1",
+      "description": "Cycle test directory A.",
+      "sortOrder": 10,
+      "createdAt": "2026-06-26T02:20:00.000Z",
+      "updatedAt": "2026-06-26T02:20:00.000Z"
+    },
+    {
+      "id": "sync-qa-bad-cycle-dir-b-v1",
+      "title": "Sync QA Bad Cycle Directory B",
+      "parentId": "sync-qa-bad-cycle-dir-a-v1",
+      "description": "Cycle test directory B.",
+      "sortOrder": 20,
+      "createdAt": "2026-06-26T02:20:00.000Z",
+      "updatedAt": "2026-06-26T02:20:00.000Z"
+    }
+  ],
+  "syncMeta": {
+    "packageType": "manual-sync",
+    "deviceId": "sync-qa-device-bad-cycle",
+    "deviceName": "Sync QA Bad Cycle Device",
+    "generatedAt": "2026-06-26T02:20:00.000Z"
+  }
+}

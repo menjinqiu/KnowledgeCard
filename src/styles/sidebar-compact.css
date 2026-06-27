@@ -1,0 +1,104 @@
+.compact-shell .main-shell {
+  padding-top: var(--space-4);
+}
+
+.sidebar-top-group {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.sidebar-quick-actions {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.sidebar-search-form,
+.sidebar-create-button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: 34px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 6px 10px;
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  font-weight: 750;
+  text-align: left;
+}
+
+.sidebar-search-form:hover,
+.sidebar-search-form:focus-within,
+.sidebar-create-button:hover {
+  border-color: var(--color-border-strong);
+  background: var(--color-surface-muted);
+}
+
+.sidebar-search-form input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  outline: none;
+}
+
+.sidebar-search-form input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.sidebar-search-form kbd {
+  flex: 0 0 auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xs);
+  padding: 1px 6px;
+  background: var(--color-surface-muted);
+  color: var(--color-text-subtle);
+  font-size: var(--font-size-xs);
+  font-weight: 800;
+}
+
+.sidebar-create-button {
+  justify-content: center;
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: #ffffff;
+  font-weight: 850;
+}
+
+.sidebar-create-button:hover {
+  border-color: var(--color-accent-strong);
+  background: var(--color-accent-strong);
+}
+
+
+@media (max-width: 960px) {
+  .compact-shell .main-shell {
+    padding-top: 18px;
+  }
+
+  .sidebar-top-group {
+    grid-template-columns: minmax(220px, auto) minmax(260px, 1fr);
+    align-items: start;
+  }
+
+  .sidebar-quick-actions {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .sidebar-create-button {
+    min-width: 116px;
+  }
+}
+
+@media (max-width: 620px) {
+  .sidebar-top-group,
+  .sidebar-quick-actions {
+    grid-template-columns: 1fr;
+  }
+}

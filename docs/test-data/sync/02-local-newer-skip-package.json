@@ -1,0 +1,57 @@
+{
+  "app": "KnowledgeCard",
+  "version": 1,
+  "exportedAt": "2026-06-25T23:00:00.000Z",
+  "cards": [
+    {
+      "id": "sync-qa-shared-card-v1",
+      "title": "同步 QA 共享卡片 Older Remote",
+      "domain": "工具",
+      "type": "知识卡",
+      "tags": ["同步QA", "Older"],
+      "summary": "用于测试本地较新跳过的旧卡片。",
+      "content": "## Older Remote\n这张卡片比 baseline 更旧，应该被跳过为本地较新。",
+      "copyLabel": "测试文本",
+      "copyText": "sync qa older remote card",
+      "primaryDirectoryId": "sync-qa-root-dir-v1",
+      "directorySortOrder": 99,
+      "source": "docs/test-data/sync/02-local-newer-skip-package.json",
+      "sourceUrl": "",
+      "validity": "长期有效",
+      "importance": 2,
+      "favorite": false,
+      "printable": false,
+      "archived": false,
+      "createdAt": "2026-06-25T23:00:00.000Z",
+      "updatedAt": "2026-06-25T23:00:00.000Z"
+    }
+  ],
+  "collections": [
+    {
+      "id": "sync-qa-shared-collection-v1",
+      "title": "同步 QA 共享专题集 Older Remote",
+      "description": "比 baseline 更旧，应该被跳过。",
+      "cardIds": ["sync-qa-shared-card-v1"],
+      "printable": false,
+      "createdAt": "2026-06-25T23:00:00.000Z",
+      "updatedAt": "2026-06-25T23:00:00.000Z"
+    }
+  ],
+  "directories": [
+    {
+      "id": "sync-qa-root-dir-v1",
+      "title": "同步 QA 根目录 Older Remote",
+      "parentId": "",
+      "description": "比 baseline 更旧，应该被跳过。",
+      "sortOrder": 99,
+      "createdAt": "2026-06-25T23:00:00.000Z",
+      "updatedAt": "2026-06-25T23:00:00.000Z"
+    }
+  ],
+  "syncMeta": {
+    "packageType": "manual-sync",
+    "deviceId": "sync-qa-device-older-remote",
+    "deviceName": "Sync QA Older Remote Device",
+    "generatedAt": "2026-06-25T23:00:00.000Z"
+  }
+}

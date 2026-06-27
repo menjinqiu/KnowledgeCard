@@ -1,0 +1,24 @@
+{
+  "app": "KnowledgeCard",
+  "version": 1,
+  "exportedAt": "2026-06-26T02:00:00.000Z",
+  "cards": [],
+  "collections": [],
+  "directories": [
+    {
+      "id": "sync-qa-bad-self-dir-v1",
+      "title": "同步 QA 坏目录 自指",
+      "parentId": "sync-qa-bad-self-dir-v1",
+      "description": "这个目录把自己设为父目录，应该被导入预览拦截。",
+      "sortOrder": 10,
+      "createdAt": "2026-06-26T02:00:00.000Z",
+      "updatedAt": "2026-06-26T02:00:00.000Z"
+    }
+  ],
+  "syncMeta": {
+    "packageType": "manual-sync",
+    "deviceId": "sync-qa-device-bad-self-parent",
+    "deviceName": "Sync QA Bad Self Parent Device",
+    "generatedAt": "2026-06-26T02:00:00.000Z"
+  }
+}

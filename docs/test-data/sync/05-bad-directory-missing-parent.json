@@ -1,0 +1,24 @@
+{
+  "app": "KnowledgeCard",
+  "version": 1,
+  "exportedAt": "2026-06-26T02:10:00.000Z",
+  "cards": [],
+  "collections": [],
+  "directories": [
+    {
+      "id": "sync-qa-bad-missing-parent-dir-v1",
+      "title": "Sync QA Bad Directory Missing Parent",
+      "parentId": "sync-qa-nonexistent-parent-dir-v1",
+      "description": "This directory points to a parent directory that is not included in the final tree.",
+      "sortOrder": 10,
+      "createdAt": "2026-06-26T02:10:00.000Z",
+      "updatedAt": "2026-06-26T02:10:00.000Z"
+    }
+  ],
+  "syncMeta": {
+    "packageType": "manual-sync",
+    "deviceId": "sync-qa-device-bad-missing-parent",
+    "deviceName": "Sync QA Bad Missing Parent Device",
+    "generatedAt": "2026-06-26T02:10:00.000Z"
+  }
+}

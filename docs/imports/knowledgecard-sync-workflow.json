@@ -1,0 +1,66 @@
+{
+  "app": "KnowledgeCard",
+  "version": 1,
+  "exportedAt": "2026-06-26T00:00:00.000Z",
+  "cards": [
+    {
+      "id": "knowledgecard-manual-sync-workflow-v1",
+      "title": "KnowledgeCard 手动同步标准流程",
+      "domain": "工具",
+      "type": "清单卡",
+      "tags": ["KnowledgeCard", "同步", "手动同步", "数据安全", "双设备"],
+      "summary": "用于在两台设备之间安全同步 KnowledgeCard 数据，按导出同步包、复制文件、导入预览、确认合并的流程执行。",
+      "content": "## 使用场景\n当你需要在两台电脑、两个浏览器 Profile 或不同设备之间同步 KnowledgeCard 本地数据时使用。\n\n## 同步模型\n当前同步是 local-first 手动同步包，不是云账号同步，也不是后台自动同步。\n\n```text\nA 设备导出同步包\n→ 通过坚果云 / iCloud Drive / U 盘 / 局域网传到 B 设备\n→ B 设备导入预览\n→ 勾选安全确认\n→ 按 ID + updatedAt 合并\n```\n\n## 标准流程\n1. 在刚使用完的设备上进入 `#/data`。\n2. 点击 `导出同步包`。\n3. 将 `knowledgecard-sync-package-*.json` 复制到另一台设备。\n4. 在另一台设备进入 `#/data`。\n5. 选择这个 JSON 文件。\n6. 检查来源设备、生成时间、新增/更新/跳过数量。\n7. 检查跳过原因。\n8. 勾选安全确认。\n9. 点击 `已预览，确认合并导入`。\n10. 导入后检查知识空间、专题集、打印中心是否正常。\n\n## 双向同步规则\n如果两台设备都做过编辑，不要只同步一次。需要：\n\n```text\nA → B 合并\nB → A 再合并\n```\n\n这样两边最终才更接近一致。\n\n## 什么时候导出完整备份\n在大规模导入、批量整理、改目录结构、删除大量卡片、重置浏览器前，先导出完整备份。\n\n## 当前限制\n当前不支持自动后台同步、网盘文件绑定、同时间戳内容 diff、逐条冲突解决 UI。",
+      "copyLabel": "同步清单",
+      "copyText": "# KnowledgeCard 手动同步清单\n\n## 源设备\n- [ ] 确认当前设备是刚完成编辑的设备。\n- [ ] 进入 `#/data`。\n- [ ] 点击 `导出同步包`。\n- [ ] 确认文件名是 `knowledgecard-sync-package-*.json`。\n- [ ] 将同步包复制到目标设备。\n\n## 目标设备\n- [ ] 进入 `#/data`。\n- [ ] 选择同步包 JSON 文件。\n- [ ] 确认预览显示来源设备。\n- [ ] 检查 cards 新增 / 更新 / 跳过。\n- [ ] 检查 collections 新增 / 更新 / 跳过。\n- [ ] 检查 directories 新增 / 更新 / 跳过。\n- [ ] 检查跳过原因：本地较新 / 时间相同。\n- [ ] 没有目录结构安全错误。\n- [ ] 勾选安全确认。\n- [ ] 点击 `已预览，确认合并导入`。\n\n## 导入后检查\n- [ ] 卡片库能打开。\n- [ ] 知识空间能打开。\n- [ ] 专题集能打开。\n- [ ] 常用入口正常。\n- [ ] 打印中心正常。\n\n## 如果两台设备都编辑过\n- [ ] 从目标设备再导出同步包。\n- [ ] 回到源设备预览并合并。",
+      "primaryDirectoryId": "",
+      "directorySortOrder": 9999,
+      "source": "docs/SYNC_WORKFLOW.md",
+      "sourceUrl": "",
+      "validity": "长期有效",
+      "importance": 5,
+      "favorite": false,
+      "printable": true,
+      "archived": false,
+      "createdAt": "2026-06-26T00:00:00.000Z",
+      "updatedAt": "2026-06-26T00:00:00.000Z"
+    },
+    {
+      "id": "knowledgecard-sync-skip-reason-risk-guide-v1",
+      "title": "KnowledgeCard 同步跳过原因与风险处理",
+      "domain": "工具",
+      "type": "知识卡",
+      "tags": ["KnowledgeCard", "同步", "冲突处理", "updatedAt", "数据安全"],
+      "summary": "解释同步导入预览中的本地较新、时间相同、远端较新等状态，以及遇到高跳过数量时应该如何处理。",
+      "content": "## 使用场景\n当你导入同步包时，预览里出现大量“跳过”记录，需要判断是否安全时使用。\n\n## 合并规则\nKnowledgeCard 按 ID 和 updatedAt 合并。\n\n```text\n导入记录不存在于本地\n→ 新增\n\n导入记录 updatedAt 晚于本地\n→ 更新本地\n\n导入记录 updatedAt 早于本地\n→ 跳过，本地较新\n\n导入记录 updatedAt 等于本地\n→ 跳过，时间相同\n```\n\n## 跳过原因解释\n### 本地较新\n说明目标设备上的记录更新。导入文件里的版本更旧，跳过是正确保护。\n\n处理方式：如果源设备也需要这些更新，从目标设备再导出同步包，回到源设备导入。\n\n### 时间相同\n说明两边看起来是同一个版本。大量时间相同跳过是正常现象。\n\n处理方式：通常无需处理。\n\n### 新增很多\n说明目标设备缺少这些卡片、专题集或目录。首次同步时常见。\n\n处理方式：正常合并。\n\n### 更新很多\n说明导入包比本地更新。\n\n处理方式：确认来源设备是你信任的最近使用设备后再合并。\n\n## 目录风险\n如果导入包里的 directories 存在以下问题，系统会拦截：\n\n```text\nparentId 指向自己\nparentId 指向不存在的目录\n形成父子循环\n已有目录链路存在循环\n```\n\n坏 JSON 需要先修复，不能强行导入。\n\n## 最安全做法\n大规模同步前先导出完整备份。两台设备都编辑过时，做双向同步。",
+      "copyLabel": "风险检查",
+      "copyText": "# KnowledgeCard 同步风险检查\n\n- [ ] 我确认同步包来源设备是可信设备。\n- [ ] 我确认同步包生成时间符合预期。\n- [ ] 新增数量符合预期。\n- [ ] 更新数量符合预期。\n- [ ] 本地较新跳过数量符合预期。\n- [ ] 时间相同跳过数量符合预期。\n- [ ] 如果本地较新很多，我会考虑从目标设备反向导出同步包。\n- [ ] 如果目录导入被拦截，我不会强行绕过，会先修复 JSON。\n- [ ] 大规模同步前已经导出完整备份。\n- [ ] 导入后会检查知识空间、专题集和打印中心。",
+      "primaryDirectoryId": "",
+      "directorySortOrder": 9999,
+      "source": "docs/SYNC_WORKFLOW.md",
+      "sourceUrl": "",
+      "validity": "长期有效",
+      "importance": 5,
+      "favorite": false,
+      "printable": true,
+      "archived": false,
+      "createdAt": "2026-06-26T00:00:00.000Z",
+      "updatedAt": "2026-06-26T00:00:00.000Z"
+    }
+  ],
+  "collections": [
+    {
+      "id": "collection-knowledgecard-sync-workflow-v1",
+      "title": "KnowledgeCard 同步流程",
+      "description": "KnowledgeCard 手动同步包的标准流程、跳过原因解释和风险检查。",
+      "cardIds": [
+        "knowledgecard-manual-sync-workflow-v1",
+        "knowledgecard-sync-skip-reason-risk-guide-v1"
+      ],
+      "printable": true,
+      "createdAt": "2026-06-26T00:00:00.000Z",
+      "updatedAt": "2026-06-26T00:00:00.000Z"
+    }
+  ],
+  "directories": []
+}

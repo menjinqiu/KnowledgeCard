@@ -1,0 +1,30 @@
+# dependencies
+node_modules/
+
+# build outputs
+dist/
+build/
+
+# local env
+.env
+.env.*
+!.env.example
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# editor / OS
+.DS_Store
+.idea/
+.vscode/
+
+# local AI / handoff scratch
+.ai-bridge/
+
+# coverage / cache
+coverage/
+.vite/
+.cache/

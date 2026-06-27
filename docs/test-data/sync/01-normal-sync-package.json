@@ -1,0 +1,97 @@
+{
+  "app": "KnowledgeCard",
+  "version": 1,
+  "exportedAt": "2026-06-26T01:00:00.000Z",
+  "cards": [
+    {
+      "id": "sync-qa-shared-card-v1",
+      "title": "同步 QA 共享卡片 Remote Updated",
+      "domain": "工具",
+      "type": "知识卡",
+      "tags": ["同步QA", "Remote", "Updated"],
+      "summary": "用于同步 QA 的远端更新卡片。",
+      "content": "## Remote Updated\n这张卡片的 updatedAt 晚于 baseline，应该触发更新。",
+      "copyLabel": "测试文本",
+      "copyText": "sync qa remote updated card",
+      "primaryDirectoryId": "sync-qa-root-dir-v1",
+      "directorySortOrder": 5,
+      "source": "docs/test-data/sync/01-normal-sync-package.json",
+      "sourceUrl": "",
+      "validity": "长期有效",
+      "importance": 4,
+      "favorite": true,
+      "printable": true,
+      "archived": false,
+      "createdAt": "2026-06-26T00:00:00.000Z",
+      "updatedAt": "2026-06-26T01:00:00.000Z"
+    },
+    {
+      "id": "sync-qa-new-card-v1",
+      "title": "同步 QA 新增卡片 Remote",
+      "domain": "工具",
+      "type": "知识卡",
+      "tags": ["同步QA", "Remote", "Added"],
+      "summary": "用于同步 QA 的远端新增卡片。",
+      "content": "## Remote Added\n这张卡片本地不存在，应该触发新增。",
+      "copyLabel": "测试文本",
+      "copyText": "sync qa new remote card",
+      "primaryDirectoryId": "sync-qa-new-dir-v1",
+      "directorySortOrder": 10,
+      "source": "docs/test-data/sync/01-normal-sync-package.json",
+      "sourceUrl": "",
+      "validity": "长期有效",
+      "importance": 3,
+      "favorite": false,
+      "printable": true,
+      "archived": false,
+      "createdAt": "2026-06-26T01:00:00.000Z",
+      "updatedAt": "2026-06-26T01:00:00.000Z"
+    }
+  ],
+  "collections": [
+    {
+      "id": "sync-qa-shared-collection-v1",
+      "title": "同步 QA 共享专题集 Remote Updated",
+      "description": "远端更新后的同步 QA 专题集。",
+      "cardIds": ["sync-qa-shared-card-v1", "sync-qa-new-card-v1"],
+      "printable": true,
+      "createdAt": "2026-06-26T00:00:00.000Z",
+      "updatedAt": "2026-06-26T01:00:00.000Z"
+    }
+  ],
+  "directories": [
+    {
+      "id": "sync-qa-root-dir-v1",
+      "title": "同步 QA 根目录 Remote Updated",
+      "parentId": "",
+      "description": "远端更新后的同步 QA 根目录。",
+      "sortOrder": 1,
+      "createdAt": "2026-06-26T00:00:00.000Z",
+      "updatedAt": "2026-06-26T01:00:00.000Z"
+    },
+    {
+      "id": "sync-qa-child-dir-v1",
+      "title": "同步 QA 子目录 Baseline",
+      "parentId": "sync-qa-root-dir-v1",
+      "description": "保持和 baseline 时间相同，用于观察 same-timestamp skip。",
+      "sortOrder": 20,
+      "createdAt": "2026-06-26T00:00:00.000Z",
+      "updatedAt": "2026-06-26T00:00:00.000Z"
+    },
+    {
+      "id": "sync-qa-new-dir-v1",
+      "title": "同步 QA 新增目录 Remote",
+      "parentId": "sync-qa-root-dir-v1",
+      "description": "远端新增目录。",
+      "sortOrder": 30,
+      "createdAt": "2026-06-26T01:00:00.000Z",
+      "updatedAt": "2026-06-26T01:00:00.000Z"
+    }
+  ],
+  "syncMeta": {
+    "packageType": "manual-sync",
+    "deviceId": "sync-qa-device-remote-normal",
+    "deviceName": "Sync QA Remote Normal Device",
+    "generatedAt": "2026-06-26T01:00:00.000Z"
+  }
+}
