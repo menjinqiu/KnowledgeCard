@@ -185,6 +185,7 @@ export function DataManagementPage({ onNavigate }: DataManagementPageProps) {
   const [syncPlan, setSyncPlan] = useState<SyncPlan | null>(null);
   const [syncApplyConfirmed, setSyncApplyConfirmed] = useState(false);
   const [lastSyncApplyResult, setLastSyncApplyResult] = useState<SyncApplyResult | null>(null);
+  const [showSyncDetails, setShowSyncDetails] = useState(false);
   const [syncPersistence, setSyncPersistence] = useState<SyncPersistenceState | null>(null);
   const [recoverySnapshots, setRecoverySnapshots] = useState<RecoverySnapshotListItem[]>([]);
   const [restoreSnapshotId, setRestoreSnapshotId] = useState('');
@@ -357,6 +358,7 @@ export function DataManagementPage({ onNavigate }: DataManagementPageProps) {
   const handleGenerateSyncPlan = async () => {
     setNotice(null);
     setSyncPlan(null);
+    setShowSyncDetails(true);
     setIsBusy(true);
 
     try {
@@ -368,13 +370,62 @@ export function DataManagementPage({ onNavigate }: DataManagementPageProps) {
       await reloadSyncPersistence();
       setNotice({
         type: 'success',
-        message: `同步计划已生成：共 ${plan.items.length} 条记录。本步骤只读不写，不会修改本地或同步文件。`,
+        message: `同步详情已生成：共 ${plan.items.length} 条记录。本步骤只读不写，不会修改本地或同步文件。`,
       });
     } catch (error) {
       setSyncPlan(null);
       setNotice({
         type: 'error',
-        message: error instanceof Error ? error.message : '生成同步计划失败。',
+        message: error instanceof Error ? error.message : '读取同步详情失败。',
+      });
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
+  const handleImmediateSync = async () => {
+    setNotice(null);
+    setSyncPlan(null);
+    setLastSyncApplyResult(null);
+    setSyncApplyConfirmed(false);
+    setIsBusy(true);
+
+    try {
+      const boundFile = await readBoundSyncFileText();
+      const plan = await generateSyncPlanFromRemoteText(boundFile.text);
+      setSyncPlan(plan);
+
+      if (!plan.applyDraft.canGenerate || plan.preflight.blockerCount > 0) {
+        setShowSyncDetails(true);
+        setNotice({
+          type: 'error',
+          message: `无法立即同步：发现 ${plan.preflight.blockerCount} 个阻塞项、${plan.summary.conflict} 条需确认记录。请查看同步详情后处理。`,
+        });
+        await reloadSyncPersistence();
+        return;
+      }
+
+      const changeCount = plan.applyDraft.localChosen + plan.applyDraft.remoteChosen;
+      if (changeCount === 0) {
+        setShowSyncDetails(false);
+        await reloadSyncPersistence();
+        setNotice({ type: 'success', message: '已是最新：本地数据和同步文件没有需要合并的变化。' });
+        return;
+      }
+
+      const result = await applyBoundSyncDraft();
+      setLastSyncApplyResult(result);
+      setShowSyncDetails(false);
+      await Promise.all([reloadStats(), reloadSyncPersistence()]);
+      setNotice({
+        type: 'success',
+        message: `同步完成：采用本地 ${result.localChosen} 条，采用同步文件 ${result.remoteChosen} 条，保持相同 ${result.sameKept} 条；已写入 ${result.writtenFileName}。`,
+      });
+    } catch (error) {
+      setShowSyncDetails(true);
+      setNotice({
+        type: 'error',
+        message: error instanceof Error ? error.message : '立即同步失败。',
       });
     } finally {
       setIsBusy(false);
@@ -640,9 +691,6 @@ export function DataManagementPage({ onNavigate }: DataManagementPageProps) {
           </button>
           <button className="secondary-button" onClick={() => onNavigate('/collections')}>
             专题集
-          </button>
-          <button className="secondary-button" onClick={handleExportSyncPackage} disabled={isBusy}>
-            导出同步包
           </button>
           <button className="primary-button" onClick={handleExport} disabled={isBusy}>
             导出完整备份
@@ -967,242 +1015,287 @@ export function DataManagementPage({ onNavigate }: DataManagementPageProps) {
         </main>
 
         <aside className="data-side panel-surface">
-          <section className="data-section">
+          <section className="data-section safety-section">
             <p className="section-label">Local Safety</p>
-            <h2>本地持久化</h2>
-            <p>IndexedDB 是主数据库。同步文件不可用不代表本地数据丢失；页面刷新或重启开发服务也不应要求重新导入。</p>
+            <h2>本地数据安全</h2>
+            <p>IndexedDB 是主数据库。日常不需要操作下面这些按钮；导入和立即同步会自动创建恢复快照。这里主要用于降低浏览器清理风险和故障恢复。</p>
 
-            <div className="sync-safety-card">
-              <span>浏览器持久存储</span>
-              <strong>{formatStorageStatus(syncPersistence?.storageStatus)}</strong>
-              <small>
-                已用 {formatOptionalBytes(syncPersistence?.storageStatus.usage)} / 配额 {formatOptionalBytes(syncPersistence?.storageStatus.quota)}
-              </small>
-              {syncPersistence?.storageStatus.error ? <small>{syncPersistence.storageStatus.error}</small> : null}
-            </div>
-
-            <button className="secondary-button" onClick={handleRequestPersistentStorage} disabled={isBusy}>
-              请求持久存储
-            </button>
-
-            <label className="editor-field compact-field">
-              <span>当前设备名称</span>
-              <input
-                value={deviceNameDraft}
-                placeholder="例如 MacBook / Windows Desktop"
-                onChange={(event) => setDeviceNameDraft(event.target.value)}
-              />
-            </label>
-            <button className="secondary-button" onClick={handleSaveDeviceName} disabled={isBusy || !deviceNameDraft.trim()}>
-              保存设备名称
-            </button>
-
-            <div className="sync-safety-card">
-              <span>恢复快照</span>
-              <strong>{syncPersistence?.recoverySummary.count ?? 0}</strong>
-              <small>
-                最近：{formatBackupDate(syncPersistence?.recoverySummary.latestCreatedAt ?? '')} · {formatRecoveryReason(syncPersistence?.recoverySummary.latestReason)}
-              </small>
-            </div>
-            <button className="primary-button" onClick={handleCreateRecoverySnapshot} disabled={isBusy}>
-              创建恢复快照
-            </button>
-
-            <div className="recovery-list">
-              <strong>最近恢复快照</strong>
-              {recoverySnapshots.length > 0 ? (
-                recoverySnapshots.map((snapshot) => (
-                  <label className="recovery-item" key={snapshot.id}>
-                    <input
-                      type="radio"
-                      name="recoverySnapshot"
-                      checked={restoreSnapshotId === snapshot.id}
-                      onChange={() => {
-                        setRestoreSnapshotId(snapshot.id);
-                        setRestoreConfirmed(false);
-                      }}
-                    />
-                    <span>
-                      <b>{formatBackupDate(snapshot.createdAt)}</b>
-                      <small>
-                        {formatRecoveryReason(snapshot.reason)} · {snapshot.cardCount} 卡片 · {snapshot.collectionCount} 专题集 · {snapshot.directoryCount} 目录
-                      </small>
-                    </span>
-                  </label>
-                ))
-              ) : (
-                <p>暂无恢复快照。</p>
-              )}
-            </div>
-
-            {restoreSnapshotId ? (
-              <div className="restore-confirm-box">
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={restoreConfirmed}
-                    onChange={(event) => setRestoreConfirmed(event.target.checked)}
-                  />
-                  我理解恢复会替换当前 cards / collections / directories，恢复前会自动再创建一个快照。
-                </label>
-                <button
-                  className="danger-button"
-                  onClick={handleRestoreRecoverySnapshot}
-                  disabled={isBusy || !restoreConfirmed}
-                >
-                  从所选快照恢复
-                </button>
+            <div className="safety-summary-grid">
+              <div className="sync-safety-card">
+                <span>浏览器持久存储</span>
+                <strong>{formatStorageStatus(syncPersistence?.storageStatus)}</strong>
+                <small>降低浏览器自动清理 IndexedDB 的风险。</small>
               </div>
-            ) : null}
+              <div className="sync-safety-card">
+                <span>恢复快照</span>
+                <strong>{syncPersistence?.recoverySummary.count ?? 0}</strong>
+                <small>
+                  最近：{formatBackupDate(syncPersistence?.recoverySummary.latestCreatedAt ?? '')} · {formatRecoveryReason(syncPersistence?.recoverySummary.latestReason)}
+                </small>
+              </div>
+            </div>
+
+            <details className="advanced-panel">
+              <summary>高级安全 / 故障恢复</summary>
+              <div className="advanced-panel-body">
+                <div className="sync-safety-card">
+                  <span>浏览器存储状态</span>
+                  <strong>{formatStorageStatus(syncPersistence?.storageStatus)}</strong>
+                  <small>
+                    已用 {formatOptionalBytes(syncPersistence?.storageStatus.usage)} / 配额 {formatOptionalBytes(syncPersistence?.storageStatus.quota)}
+                  </small>
+                  {syncPersistence?.storageStatus.error ? <small>{syncPersistence.storageStatus.error}</small> : null}
+                </div>
+
+                <button className="secondary-button" onClick={handleRequestPersistentStorage} disabled={isBusy}>
+                  降低浏览器清理风险
+                </button>
+
+                <label className="editor-field compact-field">
+                  <span>设备名称（仅用于同步详情里区分来源）</span>
+                  <input
+                    value={deviceNameDraft}
+                    placeholder="例如 MacBook / Windows Desktop"
+                    onChange={(event) => setDeviceNameDraft(event.target.value)}
+                  />
+                </label>
+                <button className="secondary-button" onClick={handleSaveDeviceName} disabled={isBusy || !deviceNameDraft.trim()}>
+                  保存设备名称
+                </button>
+
+                <button className="secondary-button" onClick={handleCreateRecoverySnapshot} disabled={isBusy}>
+                  手动创建恢复快照
+                </button>
+
+                <div className="recovery-list">
+                  <strong>最近恢复快照</strong>
+                  {recoverySnapshots.length > 0 ? (
+                    recoverySnapshots.map((snapshot) => (
+                      <label className="recovery-item" key={snapshot.id}>
+                        <input
+                          type="radio"
+                          name="recoverySnapshot"
+                          checked={restoreSnapshotId === snapshot.id}
+                          onChange={() => {
+                            setRestoreSnapshotId(snapshot.id);
+                            setRestoreConfirmed(false);
+                          }}
+                        />
+                        <span>
+                          <b>{formatBackupDate(snapshot.createdAt)}</b>
+                          <small>
+                            {formatRecoveryReason(snapshot.reason)} · {snapshot.cardCount} 卡片 · {snapshot.collectionCount} 专题集 · {snapshot.directoryCount} 目录
+                          </small>
+                        </span>
+                      </label>
+                    ))
+                  ) : (
+                    <p>暂无恢复快照。</p>
+                  )}
+                </div>
+
+                {restoreSnapshotId ? (
+                  <div className="restore-confirm-box">
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={restoreConfirmed}
+                        onChange={(event) => setRestoreConfirmed(event.target.checked)}
+                      />
+                      我理解恢复会替换当前 cards / collections / directories，恢复前会自动再创建一个快照。
+                    </label>
+                    <button
+                      className="danger-button"
+                      onClick={handleRestoreRecoverySnapshot}
+                      disabled={isBusy || !restoreConfirmed}
+                    >
+                      从所选快照恢复
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            </details>
           </section>
 
-          <section className="data-section">
-            <p className="section-label">Bound File Sync</p>
-            <h2>绑定同步文件</h2>
-            <p>用于选择坚果云或其他网盘同步目录里的 `knowledgecard-sync.json`。当前只支持手动读写，不会自动覆盖本地数据。</p>
+          <section className="data-section simplified-sync-section">
+            <p className="section-label">Device Sync</p>
+            <h2>多设备同步</h2>
+            <p>日常只需要三步：第一次在网盘目录生成同步文件；另一台设备绑定这个文件；之后点击立即同步。系统会先自动对账，有冲突时不会写入。</p>
 
-            <div className="sync-safety-card">
-              <span>文件访问能力</span>
-              <strong>{isBoundSyncFileSupported() ? '支持' : '不支持'}</strong>
-              <small>{isBoundSyncFileSupported() ? '可以绑定本地 JSON 文件。' : '当前浏览器不支持 File System Access API，请继续使用手动同步包。'}</small>
+            <div className="sync-flow-steps">
+              <div>
+                <span>1</span>
+                <b>生成同步文件</b>
+                <small>第一台设备使用，建议放在坚果云 / iCloud / 网盘目录。</small>
+              </div>
+              <div>
+                <span>2</span>
+                <b>绑定同步文件</b>
+                <small>其他设备选择同一个 knowledgecard-sync.json。</small>
+              </div>
+              <div>
+                <span>3</span>
+                <b>立即同步</b>
+                <small>自动检查差异，安全合并，并写回本地和同步文件。</small>
+              </div>
             </div>
 
-            <div className="sync-safety-card">
-              <span>当前绑定文件</span>
+            <div className="sync-safety-card sync-file-status-card">
+              <span>当前同步文件</span>
               <strong>{syncPersistence?.syncState.fileName || '未绑定'}</strong>
-              <small>模式：{syncPersistence?.syncState.mode === 'file-bound' ? '文件绑定' : '手动同步'}</small>
+              <small>{isBoundSyncFileSupported() ? '浏览器支持本地文件绑定。' : '当前浏览器不支持文件绑定，请使用完整备份导入导出。'}</small>
               <small>最近读取：{formatBackupDate(syncPersistence?.syncState.lastReadRemoteAt ?? '')}</small>
               <small>最近写入：{formatBackupDate(syncPersistence?.syncState.lastWriteRemoteAt ?? '')}</small>
             </div>
 
-            <div className="bound-file-actions">
+            <div className="bound-file-actions sync-main-actions">
               <button className="secondary-button" onClick={handleCreateAndBindSyncFile} disabled={isBusy || !isBoundSyncFileSupported()}>
-                创建并绑定同步文件
+                生成同步文件
               </button>
               <button className="secondary-button" onClick={handleBindExistingSyncFile} disabled={isBusy || !isBoundSyncFileSupported()}>
-                绑定已有同步文件
+                绑定同步文件
               </button>
-              <button className="secondary-button" onClick={handleWriteLocalToBoundFile} disabled={isBusy || !syncPersistence?.syncState.fileName}>
-                写入本地数据到文件
-              </button>
-              <button className="secondary-button" onClick={handleGenerateSyncPlan} disabled={isBusy || !syncPersistence?.syncState.fileName}>
-                生成同步计划
-              </button>
-              <button className="primary-button" onClick={handlePreviewBoundSyncFile} disabled={isBusy || !syncPersistence?.syncState.fileName}>
-                读取文件并预览导入
+              <button className="primary-button" onClick={handleImmediateSync} disabled={isBusy || !syncPersistence?.syncState.fileName}>
+                立即同步
               </button>
             </div>
 
+            <button
+              className="text-button sync-detail-toggle"
+              type="button"
+              onClick={() => setShowSyncDetails((current) => !current)}
+              disabled={isBusy}
+            >
+              {showSyncDetails ? '收起同步详情' : '查看同步详情 / 问题诊断'}
+            </button>
+
             {lastSyncApplyResult ? (
               <div className="sync-apply-result-box">
-                <strong>最近同步应用结果</strong>
+                <strong>最近同步结果</strong>
                 <small>
-                  {formatBackupDate(lastSyncApplyResult.appliedAt)} · {lastSyncApplyResult.cards} 卡片 · {lastSyncApplyResult.collections} 专题集 · {lastSyncApplyResult.directories} 目录 · 写入 {lastSyncApplyResult.writtenFileName}
+                  {formatBackupDate(lastSyncApplyResult.appliedAt)} · 本地采用 {lastSyncApplyResult.localChosen} · 同步文件采用 {lastSyncApplyResult.remoteChosen} · 保持相同 {lastSyncApplyResult.sameKept} · 写入 {lastSyncApplyResult.writtenFileName}
                 </small>
               </div>
             ) : null}
 
-            {syncPlan ? (
+            {showSyncDetails ? (
               <div className="sync-plan-panel">
-                <strong>同步计划</strong>
-                <small>
-                  生成时间：{formatBackupDate(syncPlan.generatedAt)} · 远端：{syncPlan.remoteMeta?.deviceName || syncPlan.remoteMeta?.lastWriterDeviceName || '未记录'}
-                </small>
-                <div className={syncPlan.preflight.canAutoApply ? 'preflight-box safe' : 'preflight-box blocked'}>
-                  <b>{syncPlan.preflight.canAutoApply ? '预检通过' : '预检未通过'}</b>
-                  <small>
-                    阻塞 {syncPlan.preflight.blockerCount} · 警告 {syncPlan.preflight.warningCount}。当前仍为只读计划，不会自动应用。
-                  </small>
-                  {syncPlan.preflight.issues.map((issue) => (
-                    <p key={`${issue.code}-${issue.message}`}>
-                      <span>{formatPreflightSeverity(issue.severity)}</span>
-                      {issue.message}
-                    </p>
-                  ))}
+                <strong>同步详情</strong>
+                <small>这里是高级诊断区。日常不用看；只有立即同步失败、怀疑冲突、或需要确认差异时再打开。</small>
+                <div className="sync-advanced-actions">
+                  <button className="secondary-button" onClick={handleGenerateSyncPlan} disabled={isBusy || !syncPersistence?.syncState.fileName}>
+                    只读检查差异
+                  </button>
+                  <button className="secondary-button" onClick={handlePreviewBoundSyncFile} disabled={isBusy || !syncPersistence?.syncState.fileName}>
+                    从同步文件预览导入
+                  </button>
                 </div>
-                <div className="sync-plan-grid">
-                  <div><span>本地新增</span><b>{syncPlan.summary['local-add']}</b></div>
-                  <div><span>远端新增</span><b>{syncPlan.summary['remote-add']}</b></div>
-                  <div><span>本地较新</span><b>{syncPlan.summary['local-newer']}</b></div>
-                  <div><span>远端较新</span><b>{syncPlan.summary['remote-newer']}</b></div>
-                  <div><span>相同</span><b>{syncPlan.summary.same}</b></div>
-                  <div><span>需确认</span><b>{syncPlan.summary.conflict}</b></div>
-                </div>
-                <div className={syncPlan.applyDraft.canGenerate ? 'apply-draft-box safe' : 'apply-draft-box blocked'}>
-                  <b>{syncPlan.applyDraft.canGenerate ? '应用草案可生成' : '应用草案不可直接应用'}</b>
-                  <small>草案只读，不会写入本地或同步文件。</small>
-                  <div className="sync-plan-grid">
-                    <div><span>草案卡片</span><b>{syncPlan.applyDraft.cardCount}</b></div>
-                    <div><span>草案专题集</span><b>{syncPlan.applyDraft.collectionCount}</b></div>
-                    <div><span>草案目录</span><b>{syncPlan.applyDraft.directoryCount}</b></div>
-                    <div><span>采用本地</span><b>{syncPlan.applyDraft.localChosen}</b></div>
-                    <div><span>采用远端</span><b>{syncPlan.applyDraft.remoteChosen}</b></div>
-                    <div><span>保持相同</span><b>{syncPlan.applyDraft.sameKept}</b></div>
-                  </div>
-                  {syncPlan.applyDraft.blockers.length > 0 ? (
-                    <div className="draft-issue-list">
-                      <strong>草案阻塞</strong>
-                      {syncPlan.applyDraft.blockers.map((issue) => <p key={issue}>{issue}</p>)}
+
+                {syncPlan ? (
+                  <>
+                    <small>
+                      生成时间：{formatBackupDate(syncPlan.generatedAt)} · 远端：{syncPlan.remoteMeta?.deviceName || syncPlan.remoteMeta?.lastWriterDeviceName || '未记录'}
+                    </small>
+                    <div className={syncPlan.preflight.canAutoApply ? 'preflight-box safe' : 'preflight-box blocked'}>
+                      <b>{syncPlan.preflight.canAutoApply ? '检查通过' : '发现需要处理的问题'}</b>
+                      <small>
+                        阻塞 {syncPlan.preflight.blockerCount} · 警告 {syncPlan.preflight.warningCount}。详情检查本身只读，不会修改本地或同步文件。
+                      </small>
+                      {syncPlan.preflight.issues.map((issue) => (
+                        <p key={`${issue.code}-${issue.message}`}>
+                          <span>{formatPreflightSeverity(issue.severity)}</span>
+                          {issue.message}
+                        </p>
+                      ))}
                     </div>
-                  ) : null}
-                  {syncPlan.applyDraft.warnings.length > 0 ? (
-                    <div className="draft-issue-list">
-                      <strong>草案警告</strong>
-                      {syncPlan.applyDraft.warnings.map((issue) => <p key={issue}>{issue}</p>)}
+                    <div className="sync-plan-grid">
+                      <div><span>本地新增</span><b>{syncPlan.summary['local-add']}</b></div>
+                      <div><span>同步文件新增</span><b>{syncPlan.summary['remote-add']}</b></div>
+                      <div><span>本地较新</span><b>{syncPlan.summary['local-newer']}</b></div>
+                      <div><span>同步文件较新</span><b>{syncPlan.summary['remote-newer']}</b></div>
+                      <div><span>相同</span><b>{syncPlan.summary.same}</b></div>
+                      <div><span>需确认</span><b>{syncPlan.summary.conflict}</b></div>
                     </div>
-                  ) : null}
-                  {syncPlan.applyDraft.canGenerate && syncPlan.preflight.blockerCount === 0 ? (
-                    <div className="sync-apply-confirm-box">
-                      <label>
-                        <input
-                          type="checkbox"
-                          checked={syncApplyConfirmed}
-                          onChange={(event) => setSyncApplyConfirmed(event.target.checked)}
-                        />
-                        我确认要重新读取绑定文件并应用当前非冲突草案。应用前会创建 before-one-click-sync 恢复快照，随后写入 IndexedDB 和绑定同步文件。
-                      </label>
-                      <button className="danger-button" onClick={handleApplySyncDraft} disabled={isBusy || !syncApplyConfirmed}>
-                        应用非冲突草案
-                      </button>
+                    <div className={syncPlan.applyDraft.canGenerate ? 'apply-draft-box safe' : 'apply-draft-box blocked'}>
+                      <b>{syncPlan.applyDraft.canGenerate ? '可安全合并' : '不能自动合并'}</b>
+                      <small>可安全合并时，主按钮“立即同步”会自动完成；这里保留手动确认入口用于诊断。</small>
+                      <div className="sync-plan-grid">
+                        <div><span>草案卡片</span><b>{syncPlan.applyDraft.cardCount}</b></div>
+                        <div><span>草案专题集</span><b>{syncPlan.applyDraft.collectionCount}</b></div>
+                        <div><span>草案目录</span><b>{syncPlan.applyDraft.directoryCount}</b></div>
+                        <div><span>采用本地</span><b>{syncPlan.applyDraft.localChosen}</b></div>
+                        <div><span>采用同步文件</span><b>{syncPlan.applyDraft.remoteChosen}</b></div>
+                        <div><span>保持相同</span><b>{syncPlan.applyDraft.sameKept}</b></div>
+                      </div>
+                      {syncPlan.applyDraft.blockers.length > 0 ? (
+                        <div className="draft-issue-list">
+                          <strong>阻塞</strong>
+                          {syncPlan.applyDraft.blockers.map((issue) => <p key={issue}>{issue}</p>)}
+                        </div>
+                      ) : null}
+                      {syncPlan.applyDraft.warnings.length > 0 ? (
+                        <div className="draft-issue-list">
+                          <strong>警告</strong>
+                          {syncPlan.applyDraft.warnings.map((issue) => <p key={issue}>{issue}</p>)}
+                        </div>
+                      ) : null}
+                      {syncPlan.applyDraft.canGenerate && syncPlan.preflight.blockerCount === 0 ? (
+                        <div className="sync-apply-confirm-box">
+                          <label>
+                            <input
+                              type="checkbox"
+                              checked={syncApplyConfirmed}
+                              onChange={(event) => setSyncApplyConfirmed(event.target.checked)}
+                            />
+                            我确认要重新读取同步文件并应用当前安全合并结果。应用前会创建 before-one-click-sync 恢复快照。
+                          </label>
+                          <button className="danger-button" onClick={handleApplySyncDraft} disabled={isBusy || !syncApplyConfirmed}>
+                            手动应用安全合并
+                          </button>
+                        </div>
+                      ) : null}
                     </div>
-                  ) : null}
-                </div>
-                <div className="sync-plan-list">
-                  {syncPlan.items.slice(0, 12).map((item) => (
-                    <div className="sync-plan-item" key={`${item.entityType}-${item.id}`}>
-                      <span>{formatEntityType(item.entityType)} · {formatSyncPlanAction(item.action)}</span>
-                      <b>{item.title}</b>
-                      <small>{item.reason}</small>
+                    <div className="sync-plan-list">
+                      {syncPlan.items.slice(0, 12).map((item) => (
+                        <div className="sync-plan-item" key={`${item.entityType}-${item.id}`}>
+                          <span>{formatEntityType(item.entityType)} · {formatSyncPlanAction(item.action)}</span>
+                          <b>{item.title}</b>
+                          <small>{item.reason}</small>
+                        </div>
+                      ))}
+                      {syncPlan.items.length > 12 ? <small>仅显示前 12 条，共 {syncPlan.items.length} 条。</small> : null}
                     </div>
-                  ))}
-                  {syncPlan.items.length > 12 ? <small>仅显示前 12 条，共 {syncPlan.items.length} 条。</small> : null}
-                </div>
+                  </>
+                ) : (
+                  <div className="empty-state compact-empty">尚未检查差异。点击“只读检查差异”可以查看本地和同步文件的差异，不会写入数据。</div>
+                )}
               </div>
             ) : null}
           </section>
 
           <section className="data-section">
-            <p className="section-label">Manual Sync</p>
-            <h2>手动同步包</h2>
-            <p>同步包包含 cards、collections 和 directories，并附带来源设备信息。适合放进坚果云、网盘或局域网共享后，在另一台设备导入合并。</p>
-            <button className="primary-button" onClick={handleExportSyncPackage} disabled={isBusy}>
-              导出同步包
-            </button>
-            <ol className="data-note-list sync-step-list">
-              <li>在当前设备导出同步包。</li>
-              <li>把 JSON 文件复制到另一台设备。</li>
-              <li>在另一台设备选择文件并预览。</li>
-              <li>确认后按 ID + updatedAt 合并。</li>
-            </ol>
-          </section>
-
-          <section className="data-section">
-            <p className="section-label">Export</p>
-            <h2>完整备份</h2>
-            <p>完整备份更适合长期存档和恢复。它也能被导入合并，但不附带同步来源设备提示。</p>
+            <p className="section-label">Backup</p>
+            <h2>备份与迁移</h2>
+            <p>完整备份用于长期存档、换电脑迁移和保险留底。它不是日常同步文件；日常多设备同步请使用上面的“生成同步文件 / 绑定同步文件 / 立即同步”。</p>
             <button className="secondary-button" onClick={handleExport} disabled={isBusy}>
-              导出完整 JSON
+              导出完整备份 JSON
             </button>
+
+            <details className="advanced-panel">
+              <summary>兼容旧方式：导出手动同步包</summary>
+              <div className="advanced-panel-body">
+                <p>同步包是早期的手动搬运方案，适合当前浏览器不支持文件绑定时临时使用。能用“生成同步文件”时，优先用生成同步文件。</p>
+                <button className="secondary-button" onClick={handleExportSyncPackage} disabled={isBusy}>
+                  导出手动同步包
+                </button>
+                <ol className="data-note-list sync-step-list">
+                  <li>在当前设备导出同步包。</li>
+                  <li>把 JSON 文件复制到另一台设备。</li>
+                  <li>在另一台设备选择文件并预览。</li>
+                  <li>确认后按 ID + updatedAt 合并。</li>
+                </ol>
+              </div>
+            </details>
           </section>
 
           <section className="data-section">

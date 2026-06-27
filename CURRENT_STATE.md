@@ -40,7 +40,7 @@ docs/PRINT_VISUAL_SYSTEM_PHASE_A.md
 ```text
 Project: KnowledgeCard
 Path: /Users/menjinqiu/work/codex_workspace/KnowledgeCard
-Git: current workspace is not a git repository; do not use git commands
+Git: initialized repository on main; tracks origin/main at https://github.com/menjinqiu/KnowledgeCard.git. Use CodexPro.show_changes for review instead of bash git status/diff.
 Type: local-first browser knowledge-card app
 Stack: Vite 6 + React 19 + TypeScript 5.7 + Dexie 4 + IndexedDB + plain CSS
 Routing: manual hash routing in src/app/App.tsx
@@ -237,6 +237,11 @@ Manual sync and bound-file sync:
 - Confirmed apply of non-conflict sync draft exists.
 - `before-one-click-sync` snapshot exists before applying sync draft.
 - Automatic IndexedDB rollback exists if bound-file write fails after local IndexedDB write.
+- Data Management sync UI is now simplified around three main user actions: generate sync file, bind sync file, and immediate sync.
+- Immediate sync internally reads the bound file, generates a safety plan, blocks on blockers/conflicts, applies safe non-conflict changes, writes IndexedDB and the bound sync file, and keeps the snapshot/rollback guard.
+- Advanced sync details are still available for read-only difference checking and sync-file import preview, but are no longer the main user path.
+- Persistent storage request, device name editing, manual recovery snapshot creation, and restore controls are now treated as advanced local-safety / failure-recovery tools, not daily workflow actions.
+- Manual sync-package export is now a legacy/fallback compatibility path under Backup, not the main “generate sync file” action.
 
 ## 6. Key Implementation Details Verified From Source
 
@@ -268,6 +273,13 @@ Manual sync and bound-file sync:
 - Uses constrained reading width.
 - Styles cover, TOC, section header, card header, summary, Markdown body, copyText, and footer.
 - Compact mode reduces body size, spacing, and removes forced per-card page breaks.
+
+`src/pages/DataManagementPage.tsx`:
+
+- Sync main path now exposes generate sync file / bind sync file / immediate sync.
+- `handleImmediateSync()` reads the bound file, generates a sync plan, refuses to write when blockers or conflicts exist, and applies safe changes through `applyBoundSyncDraft()`.
+- Sync detail panel keeps read-only difference checking and sync-file import preview as advanced diagnostics.
+- Legacy lower-level sync functions remain available in code because they are used by diagnostics and the immediate sync flow.
 
 `src/services/gptImportWorkflowService.ts`:
 
@@ -359,6 +371,23 @@ PASS
 ```
 
 This verifies TypeScript/Vite build after the strict handoff documentation refresh. It does not replace browser QA.
+
+### Sync UX Simplification Pass on 2026-06-27
+
+```text
+PASS: Simplified Data Management sync UI into three primary actions: generate sync file, bind sync file, immediate sync.
+PASS: Added immediate sync handler that performs read-only planning first, blocks on blockers/conflicts, and applies safe changes through the existing guarded apply service.
+PASS: Moved read-only difference checking and sync-file import preview into an advanced sync detail panel.
+PASS: Demoted persistent storage request, device name, manual recovery snapshot creation, and recovery restore into advanced Local Safety / failure-recovery controls.
+PASS: Removed the prominent sync-package export button from the page head and moved manual sync-package export into Backup as a legacy/fallback compatibility path.
+PASS: Kept recovery snapshots and rollback path intact; no Dexie schema change and no sync algorithm rewrite.
+npm run build
+PASS
+✓ 78 modules transformed
+✓ built in 1.24s
+```
+
+NOT RUN: Browser QA for the simplified sync UI and immediate-sync button.
 
 Current-session show_changes after this document refresh:
 

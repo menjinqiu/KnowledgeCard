@@ -51,7 +51,7 @@ Copy this prompt into a fresh ChatGPT/CodexPro session to continue the project w
 ```text
 Project: KnowledgeCard
 Path: /Users/menjinqiu/work/codex_workspace/KnowledgeCard
-Git: 当前 workspace 不是 git repository，不要使用 git 命令
+Git: 当前 workspace 已初始化为 git 仓库，main 跟踪 origin/main（https://github.com/menjinqiu/KnowledgeCard.git）。审查变更优先用 CodexPro.show_changes，不要用 bash git status/diff。
 Stack: Vite 6 + React 19 + TypeScript 5.7 + Dexie 4 + IndexedDB + plain CSS
 Routing: manual hash routing
 Dev: npm run dev，127.0.0.1:5175
@@ -94,6 +94,10 @@ GPT 卡片导入工作流
 同步计划
 同步 preflight
 非冲突同步草案 apply
+Data Management 同步主界面已简化为：生成同步文件 / 绑定同步文件 / 立即同步
+立即同步会先只读对账，有阻塞/冲突时不写入，无冲突时走现有 guarded apply
+请求持久存储、设备名称、手动恢复快照、恢复入口已降级到高级本地安全 / 故障恢复
+导出同步包已降级为备份区里的旧式手动同步包兼容入口，不再作为主同步路径
 before-import / before-restore / before-one-click-sync 快照
 同步失败后的 IndexedDB rollback 逻辑
 ```
@@ -150,7 +154,7 @@ Print Center 当前仍然使用 card.printable 过滤候选卡片。
 
 ```text
 PASS: CodexPro 可打开 /Users/menjinqiu/work/codex_workspace/KnowledgeCard
-PASS: 确认当前 workspace 不是 git repository
+PASS: 确认当前 workspace 已初始化 git，main 跟踪 origin/main；审查变更用 CodexPro.show_changes
 PASS: 已按顺序读取 canonical 文档
 PASS: 已读取旧文档和 docs/PRINT_VISUAL_SYSTEM_PHASE_A.md
 PASS: 已抽查 package.json、src/db/db.ts、PrintCenterPage、PrintPreview、CardDetail、DetailPage、print.css、gptImportWorkflowService.ts
@@ -191,9 +195,9 @@ NOT RUN: rollback after forced bound-file write failure QA
 ```text
 PASS: npm run build
 PASS: ✓ 78 modules transformed
-PASS: ✓ built in 1.03s
+PASS: ✓ built in 1.24s
 COMPLETED: CodexPro.show_changes
-NOTE: show_changes 返回 fatal: not a git repository；这是预期状态，因为当前 workspace 不是 git repository，不能提供正常 git diff。
+NOTE: 当前有未提交变更：src/pages/DataManagementPage.tsx、src/styles/data-management.css、CURRENT_STATE.md、NEXT_SESSION_PROMPT.md。
 ```
 
 同步仍未实现：
@@ -227,37 +231,29 @@ diff 冲突解决 UI
 
 七、下一步第一件事
 
-本轮严格交接补落盘、D-016、静态搜索、npm run build、show_changes 均已执行。下一步应进入打印 QA，不要继续写新功能：
+当前刚完成同步界面简化。下一步第一优先级是浏览器 QA 这个同步主流程；打印 QA 仍然重要，但排在同步 UI QA 之后。
 
 ```text
-1. 启动 npm run dev。
-2. 打开 #/print。
-3. 选择 3–5 张真实卡片，至少包含：
-   - 有 summary 的卡；
-   - 无 summary 的卡；
-   - 有 tags 的卡；
-   - 有 source 的卡；
-   - 有 copyText 的卡；
-   - 长 copyText 卡；
-   - 长正文卡。
-4. 生成打印预览。
-5. 检查 page-per-card。
-6. 检查 compact continuous。
-7. 切换 summary / tags / source / copyText 开关。
-8. 打开 Chrome 系统打印预览。
-9. 检查 A4 边距、封面、目录、标题、摘要、正文、copyText、页脚。
-10. 另存 PDF。
-11. 记录 PASS / FAIL / NOT RUN。
-12. 若发现问题，记录复现步骤、实际结果、期望结果、影响范围。
-13. 修复后运行 npm run build。
-14. 更新 CURRENT_STATE.md 和 NEXT_SESSION_PROMPT.md。
+1. 运行 npm run build，确认仍 PASS。
+2. 启动 npm run dev。
+3. 打开 #/data。
+4. 确认“多设备同步”区域主流程只突出：生成同步文件、绑定同步文件、立即同步。
+5. 确认未绑定同步文件时，“立即同步”不可点击。
+6. 使用 disposable 同步文件测试“生成同步文件”或“绑定同步文件”。不要用真实主力数据做破坏性测试。
+7. 点击“查看同步详情 / 问题诊断”，确认只读检查差异和从同步文件预览导入仍可用。
+8. 对无冲突 disposable 文件测试“立即同步”：应先对账，再安全合并，成功后显示同步结果。
+9. 对有阻塞/冲突的文件测试“立即同步”：应拒绝写入并展开同步详情。
+10. 记录 PASS / FAIL / NOT RUN。
+11. 修复后运行 npm run build。
+12. 更新 CURRENT_STATE.md 和 NEXT_SESSION_PROMPT.md。
+13. 同步 UI QA 稳定后，再进入 #/print 的 Chrome 打印预览 / PDF QA。
 ```
 
 八、禁止事项
 
 ```text
 不要凭聊天历史推进。
-不要使用 Git 命令。
+审查变更不要用 bash git status/diff，优先用 CodexPro.show_changes。提交/推送只有在用户明确要求时再做。
 不要把“讨论过/设计过”写成“已实现”。
 不要把“构建通过”写成“浏览器 QA 通过”。
 不要继续盲调 print.css，必须先看真实打印预览。
