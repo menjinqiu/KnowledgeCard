@@ -118,8 +118,9 @@ function isImportedDirectoryNewer(
   return compareUpdatedAt(imported, existing) === 'imported-newer';
 }
 
-async function assertSafeDirectoryImport(importedDirectories: DirectoryNode[]) {
-  if (importedDirectories.length === 0) return;
+async function assertSafeDirectoryImport(importedDirectories: DirectoryNode[], importedCards: KnowledgeCard[]) {
+  const hasImportedDirectoryReferences = importedCards.some((card) => Boolean(card.primaryDirectoryId));
+  if (importedDirectories.length === 0 && !hasImportedDirectoryReferences) return;
 
   const existingDirectories = await knowledgeCardDb.directories.toArray();
   const finalDirectoriesById = new Map(existingDirectories.map((directory) => [directory.id, directory]));
@@ -132,6 +133,13 @@ async function assertSafeDirectoryImport(importedDirectories: DirectoryNode[]) {
   });
 
   const issues: string[] = [];
+
+  importedCards.forEach((card) => {
+    if (!card.primaryDirectoryId) return;
+    if (!finalDirectoriesById.has(card.primaryDirectoryId)) {
+      issues.push(`卡片「${card.title}」指向不存在的目录 ${card.primaryDirectoryId}`);
+    }
+  });
 
   for (const directory of finalDirectoriesById.values()) {
     if (!directory.parentId) continue;
@@ -274,7 +282,7 @@ async function previewImportFromJsonText(text: string, source: { name: string; s
 
   const metadata = readBackupMetadata(trimmedText);
   const parsed = parseKnowledgeCardBackupText(trimmedText);
-  await assertSafeDirectoryImport(parsed.directories);
+  await assertSafeDirectoryImport(parsed.directories, parsed.cards);
   const result = createEmptyImportResult();
   const previewItems: ImportPreviewItem[] = [];
   result.errors = parsed.errors;
@@ -459,7 +467,7 @@ async function importCardsFromJsonText(text: string): Promise<ImportResult> {
   }
 
   const parsed = parseKnowledgeCardBackupText(trimmedText);
-  await assertSafeDirectoryImport(parsed.directories);
+  await assertSafeDirectoryImport(parsed.directories, parsed.cards);
   result.errors = parsed.errors;
 
   await knowledgeCardDb.transaction('rw', knowledgeCardDb.cards, knowledgeCardDb.collections, knowledgeCardDb.directories, async () => {

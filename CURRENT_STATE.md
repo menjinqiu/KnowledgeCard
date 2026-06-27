@@ -387,7 +387,16 @@ PASS
 ✓ built in 1.24s
 ```
 
+PASS: Fixed sync completeness safeguards after user reported incomplete sync symptoms: Quick Access empty auto-created local system collection no longer overrides a non-empty remote Quick Access collection.
+PASS: Added sync preflight/apply-draft blocker when cards reference missing directories, preventing directory-page invisible cards after sync.
+PASS: Added the same card-directory-reference safety check to normal JSON preview/import so the advanced import path cannot bypass the sync guard.
+npm run build
+PASS
+✓ 78 modules transformed
+✓ built in 1.05s
+
 NOT RUN: Browser QA for the simplified sync UI and immediate-sync button.
+NOT RUN: Browser QA for Quick Access recovery / missing-directory blocker scenarios.
 
 Current-session show_changes after this document refresh:
 

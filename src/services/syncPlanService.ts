@@ -1,6 +1,7 @@
 import { knowledgeCardDb } from '../db/db';
 import type { CardCollection, DirectoryNode, KnowledgeCard } from '../types/card';
 import { parseKnowledgeCardBackupText } from './backupValidationService';
+import { QUICK_ACCESS_COLLECTION_ID } from './collectionService';
 
 type SyncEntityType = 'card' | 'collection' | 'directory';
 
@@ -30,6 +31,7 @@ export type SyncPreflightIssue = {
     | 'conflicts-present'
     | 'directory-cycle-risk'
     | 'missing-directory-parent'
+    | 'missing-card-directory'
     | 'remote-format-warning'
     | 'delete-semantics-unknown'
     | 'safe-read-only-plan';
@@ -111,6 +113,18 @@ function getEntityTitle(entity: SyncComparableEntity | undefined, fallbackId: st
   return entity && 'title' in entity && entity.title ? entity.title : fallbackId;
 }
 
+function isQuickAccessCollectionEntity(entity: SyncComparableEntity | undefined): entity is CardCollection {
+  return Boolean(entity && 'cardIds' in entity && entity.id === QUICK_ACCESS_COLLECTION_ID);
+}
+
+function isEmptyQuickAccessCollection(entity: SyncComparableEntity | undefined) {
+  return isQuickAccessCollectionEntity(entity) && entity.cardIds.length === 0;
+}
+
+function isNonEmptyQuickAccessCollection(entity: SyncComparableEntity | undefined) {
+  return isQuickAccessCollectionEntity(entity) && entity.cardIds.length > 0;
+}
+
 function normalizeEntityForComparison(entityType: SyncEntityType, entity: SyncComparableEntity) {
   if (entityType === 'card') {
     const card = entity as KnowledgeCard;
@@ -183,6 +197,32 @@ function compareEntities(
       action: 'conflict',
       reason: '同步计划内部状态异常。',
     };
+  }
+
+  if (entityType === 'collection' && id === QUICK_ACCESS_COLLECTION_ID) {
+    if (isEmptyQuickAccessCollection(local) && isNonEmptyQuickAccessCollection(remote)) {
+      return {
+        id,
+        title: getEntityTitle(remote, id),
+        entityType,
+        action: 'remote-newer',
+        localUpdatedAt: local.updatedAt,
+        remoteUpdatedAt: remote.updatedAt,
+        reason: '本地当前常用为空，远端当前常用有内容；优先保留远端常用入口，避免新设备自动创建的空集合覆盖旧设备。',
+      };
+    }
+
+    if (isNonEmptyQuickAccessCollection(local) && isEmptyQuickAccessCollection(remote)) {
+      return {
+        id,
+        title: getEntityTitle(local, id),
+        entityType,
+        action: 'local-newer',
+        localUpdatedAt: local.updatedAt,
+        remoteUpdatedAt: remote.updatedAt,
+        reason: '远端当前常用为空，本地当前常用有内容；优先保留本地常用入口，避免空集合覆盖已有常用入口。',
+      };
+    }
   }
 
   const localHash = stableStringify(normalizeEntityForComparison(entityType, local));
@@ -265,6 +305,26 @@ function parseRemoteMeta(text: string): SyncPlan['remoteMeta'] {
   } catch {
     return undefined;
   }
+}
+
+function checkCardDirectoryReferences(cards: KnowledgeCard[], directories: DirectoryNode[]) {
+  const directoryIds = new Set(directories.map((directory) => directory.id));
+  const missing = cards.filter((card) => card.primaryDirectoryId && !directoryIds.has(card.primaryDirectoryId));
+
+  if (missing.length === 0) return [];
+
+  const preview = missing
+    .slice(0, 4)
+    .map((card) => `「${card.title}」→ ${card.primaryDirectoryId}`)
+    .join('；');
+
+  return [
+    {
+      severity: 'blocker' as const,
+      code: 'missing-card-directory' as const,
+      message: `存在 ${missing.length} 张卡片指向不存在的目录，不能自动应用，否则目录页会看不到这些卡片。${preview}`,
+    },
+  ];
 }
 
 function checkDirectorySafety(directories: DirectoryNode[]) {
@@ -408,7 +468,11 @@ function createApplyDraft(
   }
 
   const finalDirectoryIssues = checkDirectorySafety(directoryDraft.result as DirectoryNode[]).map((issue) => issue.message);
-  blockers.push(...finalDirectoryIssues);
+  const finalCardDirectoryIssues = checkCardDirectoryReferences(
+    cardDraft.result as KnowledgeCard[],
+    directoryDraft.result as DirectoryNode[],
+  ).map((issue) => issue.message);
+  blockers.push(...finalDirectoryIssues, ...finalCardDirectoryIssues);
 
   return {
     canGenerate: blockers.length === 0,
@@ -427,6 +491,7 @@ function createApplyDraft(
 
 function createPreflight(
   items: SyncPlanItem[],
+  remoteCards: KnowledgeCard[],
   remoteDirectories: DirectoryNode[],
   remoteMeta: SyncPlan['remoteMeta'],
 ): SyncPreflight {
@@ -460,6 +525,7 @@ function createPreflight(
   }
 
   issues.push(...checkDirectorySafety(remoteDirectories));
+  issues.push(...checkCardDirectoryReferences(remoteCards, remoteDirectories));
 
   if (issues.length === 0) {
     issues.push({
@@ -499,7 +565,7 @@ export async function generateSyncPlanFromRemoteText(remoteText: string): Promis
     summary[item.action] += 1;
   });
   const remoteMeta = parseRemoteMeta(remoteText);
-  const preflight = createPreflight(items, remote.directories, remoteMeta);
+  const preflight = createPreflight(items, remote.cards, remote.directories, remoteMeta);
 
   return {
     generatedAt: new Date().toISOString(),
